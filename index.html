@@ -2,50 +2,92 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>ONLYplans</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #f5f5f5;
+  html { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    background: #f0f2f5;
     color: #1a1a1a;
-    padding: 16px;
-    overflow-x: hidden;
-    overscroll-behavior: none;
-    -webkit-overflow-scrolling: touch;
+    min-height: 100%;
+    padding: 12px;
+    overscroll-behavior-y: none;
   }
-  .card { background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-  .metric { background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .metric-label { font-size: 11px; color: #888; margin-bottom: 4px; }
-  .metric-value { font-size: 20px; font-weight: 600; }
+  .card {
+    background: white;
+    border-radius: 18px;
+    padding: 16px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .metric {
+    background: white;
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .metric-label { font-size: 11px; color: #999; margin-bottom: 4px; }
+  .metric-value { font-size: 18px; font-weight: 600; color: #1a1a1a; }
   .green { color: #1D9E75; }
   .blue { color: #378ADD; }
-  .red { color: #E24B4A; }
-  .progress-bar { height: 10px; background: #f0f0f0; border-radius: 99px; overflow: hidden; margin: 8px 0; }
-  .progress-fill { height: 100%; background: #1D9E75; border-radius: 99px; transition: width 0.5s; }
-  .section-title { font-size: 13px; color: #888; margin-bottom: 10px; }
-  .expense-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
+  .progress-bar {
+    height: 8px;
+    background: #f0f0f0;
+    border-radius: 99px;
+    overflow: hidden;
+    margin: 10px 0 6px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #1D9E75, #2DC78F);
+    border-radius: 99px;
+    transition: width 0.8s ease;
+  }
+  .progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #999;
+  }
+  .section-title { font-size: 12px; color: #999; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+  h2 { font-size: 17px; font-weight: 700; margin-bottom: 2px; }
+  .subtitle { font-size: 13px; color: #888; }
+  .chart-container {
+    position: relative;
+    width: 100%;
+    height: 150px;
+  }
+  .expense-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f5f5f5;
+  }
   .expense-item:last-child { border-bottom: none; }
-  .expense-name { font-size: 14px; }
-  .expense-date { font-size: 12px; color: #aaa; margin-top: 2px; }
-  .expense-amount { font-size: 14px; font-weight: 500; color: #E24B4A; }
-  h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
-  .subtitle { font-size: 13px; color: #888; margin-bottom: 12px; }
-  .chart-wrap { position: relative; width: 100%; height: 160px; }
+  .expense-name { font-size: 14px; font-weight: 500; }
+  .expense-date { font-size: 12px; color: #bbb; margin-top: 2px; }
+  .expense-amount { font-size: 14px; font-weight: 600; color: #E24B4A; white-space: nowrap; margin-left: 12px; }
 </style>
 </head>
 <body>
 
 <div class="card">
   <h2 id="dream">Загрузка...</h2>
-  <p class="subtitle" id="subtitle">Твой финансовый прогресс</p>
+  <p class="subtitle" id="subtitle">Финансовый прогресс</p>
   <div class="progress-bar">
-    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
   </div>
-  <div style="display:flex; justify-content:space-between; font-size:13px; color:#888;">
+  <div class="progress-labels">
     <span id="saved-label">0 ₽</span>
     <span id="progress-label">0%</span>
     <span id="goal-label">0 ₽</span>
@@ -73,14 +115,14 @@
 
 <div class="card">
   <p class="section-title">График накоплений</p>
-  <div class="chart-wrap">
+  <div class="chart-container">
     <canvas id="savingsChart"></canvas>
   </div>
 </div>
 
 <div class="card">
   <p class="section-title">Траты за 7 дней</p>
-  <div class="chart-wrap">
+  <div class="chart-container">
     <canvas id="expensesChart"></canvas>
   </div>
 </div>
@@ -95,15 +137,7 @@
 const tg = window.Telegram.WebApp;
 tg.ready();
 tg.expand();
-document.addEventListener('touchmove', function(e) {
-  if (e.target.closest('.card')) return;
-}, { passive: false });
 
-// Получаем данные из Telegram
-const initData = tg.initDataUnsafe;
-const userData = initData?.user;
-
-// Тестовые данные если нет реальных
 const demo = {
   dream: "Купить квартиру",
   goal: 500000,
@@ -128,30 +162,24 @@ function fmt(n) {
 }
 
 function render(data) {
-  const progress = Math.round((data.saved / data.goal) * 100);
+  const progress = Math.min(100, Math.round((data.saved / data.goal) * 100));
 
   document.getElementById("dream").textContent = "🎯 " + data.dream;
-  document.getElementById("subtitle").textContent =
-    "Прогресс к цели · " + progress + "%";
+  document.getElementById("subtitle").textContent = "Прогресс · " + progress + "%";
   document.getElementById("progress-fill").style.width = progress + "%";
   document.getElementById("saved-label").textContent = fmt(data.saved);
   document.getElementById("progress-label").textContent = progress + "%";
   document.getElementById("goal-label").textContent = fmt(data.goal);
-
   document.getElementById("m-goal").textContent = fmt(data.goal);
   document.getElementById("m-saved").textContent = fmt(data.saved);
   document.getElementById("m-monthly").textContent = fmt(data.monthly_save);
   document.getElementById("m-months").textContent = data.months_left + " мес.";
 
-  // График накоплений
-  const months = ["Янв","Фев","Мар","Апр","Май","Июн",
-                  "Июл","Авг","Сен","Окт","Ноя","Дек"];
+  const months = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
   const now = new Date();
-  const labels = [];
-  const actual = [];
-  const forecast = [];
+  const labels = [], actual = [], forecast = [];
 
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 10; i++) {
     const m = new Date(now.getFullYear(), now.getMonth() - 2 + i);
     labels.push(months[m.getMonth()]);
     if (i < 3) {
@@ -159,9 +187,15 @@ function render(data) {
       forecast.push(null);
     } else {
       actual.push(null);
-      forecast.push(Math.round(data.saved + data.monthly_save * (i - 2)));
+      forecast.push(Math.min(data.goal, Math.round(data.saved + data.monthly_save * (i - 2))));
     }
   }
+
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { enabled: true } },
+  };
 
   new Chart(document.getElementById("savingsChart"), {
     type: "line",
@@ -169,47 +203,41 @@ function render(data) {
       labels,
       datasets: [
         {
-          label: "Накоплено",
           data: actual,
           borderColor: "#1D9E75",
-          backgroundColor: "rgba(29,158,117,0.1)",
+          backgroundColor: "rgba(29,158,117,0.08)",
           borderWidth: 2,
           fill: true,
           tension: 0.4,
-          pointRadius: 4
+          pointRadius: 4,
+          pointBackgroundColor: "#1D9E75"
         },
         {
-          label: "Прогноз",
           data: forecast,
           borderColor: "#378ADD",
-          backgroundColor: "rgba(55,138,221,0.07)",
+          backgroundColor: "rgba(55,138,221,0.05)",
           borderWidth: 2,
-          borderDash: [6, 4],
+          borderDash: [5, 4],
           fill: true,
           tension: 0.4,
-          pointRadius: 3
+          pointRadius: 3,
+          pointBackgroundColor: "#378ADD"
         }
       ]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      ...chartDefaults,
       scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-        y: { ticks: { callback: v => (v/1000) + "k", font: { size: 11 } } }
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, color: "#bbb" } },
+        y: { grid: { color: "rgba(0,0,0,0.04)" }, ticks: { font: { size: 10 }, color: "#bbb", callback: v => (v/1000) + "k" } }
       }
     }
   });
 
-  // График трат по дням
   const last7 = data.daily.slice(-7);
-  const dayLabels = last7.map(d => {
-    const date = new Date(d.date);
-    return ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"][date.getDay()];
-  });
+  const dayLabels = last7.map(d => ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"][new Date(d.date).getDay()]);
   const dayTotals = last7.map(d => d.total);
-  const avgDay = dayTotals.reduce((a, b) => a + b, 0) / dayTotals.length;
+  const avg = dayTotals.reduce((a,b) => a+b, 0) / dayTotals.length;
 
   new Chart(document.getElementById("expensesChart"), {
     type: "bar",
@@ -217,39 +245,32 @@ function render(data) {
       labels: dayLabels,
       datasets: [{
         data: dayTotals,
-        backgroundColor: dayTotals.map(v =>
-          v > avgDay * 1.3 ? "rgba(226,75,74,0.7)" : "rgba(29,158,117,0.65)"
-        ),
-        borderRadius: 8
+        backgroundColor: dayTotals.map(v => v > avg * 1.3 ? "rgba(226,75,74,0.75)" : "rgba(29,158,117,0.7)"),
+        borderRadius: 6,
+        borderSkipped: false
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      ...chartDefaults,
       scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-        y: { ticks: { callback: v => v + "₽", font: { size: 11 } } }
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, color: "#bbb" } },
+        y: { grid: { color: "rgba(0,0,0,0.04)" }, ticks: { font: { size: 10 }, color: "#bbb", callback: v => v + "₽" } }
       }
     }
   });
 
-  // Список трат
   const list = document.getElementById("expense-list");
   if (!data.daily.length) { list.textContent = "Нет данных"; return; }
-
   list.innerHTML = data.daily.slice(-5).reverse().map(entry => {
-    const date = new Date(entry.date);
-    const dateStr = date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
-    return `
-      <div class="expense-item">
-        <div>
-          <div class="expense-name">${entry.text}</div>
-          <div class="expense-date">${dateStr}</div>
-        </div>
-        <div class="expense-amount">−${fmt(entry.total)}</div>
+    const d = new Date(entry.date);
+    const dateStr = d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+    return `<div class="expense-item">
+      <div>
+        <div class="expense-name">${entry.text}</div>
+        <div class="expense-date">${dateStr}</div>
       </div>
-    `;
+      <div class="expense-amount">−${fmt(entry.total)}</div>
+    </div>`;
   }).join("");
 }
 
