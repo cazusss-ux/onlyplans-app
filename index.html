@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ONLYplans</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f5f5f5; color: #1a1a1a; padding: 16px; }
+  .card { background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .metric { background: white; border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .metric-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+  .metric-value { font-size: 20px; font-weight: 600; }
+  .green { color: #1D9E75; }
+  .blue { color: #378ADD; }
+  .red { color: #E24B4A; }
+  .progress-bar { height: 10px; background: #f0f0f0; border-radius: 99px; overflow: hidden; margin: 8px 0; }
+  .progress-fill { height: 100%; background: #1D9E75; border-radius: 99px; transition: width 0.5s; }
+  .section-title { font-size: 13px; color: #888; margin-bottom: 10px; }
+  .expense-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
+  .expense-item:last-child { border-bottom: none; }
+  .expense-name { font-size: 14px; }
+  .expense-date { font-size: 12px; color: #aaa; margin-top: 2px; }
+  .expense-amount { font-size: 14px; font-weight: 500; color: #E24B4A; }
+  h2 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 12px; }
+  .tag { display: inline-block; background: #f0f0f0; border-radius: 8px; padding: 4px 10px; font-size: 12px; margin-right: 6px; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h2 id="dream">Загрузка...</h2>
+  <p class="subtitle" id="subtitle">Твой финансовый прогресс</p>
+  <div class="progress-bar">
+    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+  </div>
+  <div style="display:flex; justify-content:space-between; font-size:13px; color:#888;">
+    <span id="saved-label">0 ₽</span>
+    <span id="progress-label">0%</span>
+    <span id="goal-label">0 ₽</span>
+  </div>
+</div>
+
+<div class="grid">
+  <div class="metric">
+    <div class="metric-label">Цель</div>
+    <div class="metric-value blue" id="m-goal">—</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Накоплено</div>
+    <div class="metric-value green" id="m-saved">—</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Откладываю/мес</div>
+    <div class="metric-value" id="m-monthly">—</div>
+  </div>
+  <div class="metric">
+    <div class="metric-label">Осталось месяцев</div>
+    <div class="metric-value" id="m-months">—</div>
+  </div>
+</div>
+
+<div class="card">
+  <p class="section-title">График накоплений</p>
+  <canvas id="savingsChart" height="180"></canvas>
+</div>
+
+<div class="card">
+  <p class="section-title">Траты за 7 дней</p>
+  <canvas id="expensesChart" height="160"></canvas>
+</div>
+
+<div class="card">
+  <p class="section-title">Последние записи</p>
+  <div id="expense-list">Нет данных</div>
+</div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+// Получаем данные из Telegram
+const initData = tg.initDataUnsafe;
+const userData = initData?.user;
+
+// Тестовые данные если нет реальных
+const demo = {
+  dream: "Купить квартиру",
+  goal: 500000,
+  saved: 33529,
+  monthly_save: 30000,
+  months_left: 16,
+  income: 150000,
+  expenses: 120000,
+  daily: [
+    { date: "2026-05-04", text: "кофе 350, обед 720", total: 1070 },
+    { date: "2026-05-05", text: "продукты 1800, такси 600", total: 2400 },
+    { date: "2026-05-06", text: "обед 500, развлечения 1500", total: 2000 },
+    { date: "2026-05-07", text: "кофе 300, доставка 900", total: 1200 },
+    { date: "2026-05-08", text: "продукты 2100, аптека 400", total: 2500 },
+    { date: "2026-05-09", text: "обед 650, такси 800", total: 1450 },
+    { date: "2026-05-10", text: "развлечения 2800, кофе 400", total: 3200 },
+  ]
+};
+
+function fmt(n) {
+  return Number(n).toLocaleString("ru-RU") + " ₽";
+}
+
+function render(data) {
+  const progress = Math.round((data.saved / data.goal) * 100);
+
+  document.getElementById("dream").textContent = "🎯 " + data.dream;
+  document.getElementById("subtitle").textContent =
+    "Прогресс к цели · " + progress + "%";
+  document.getElementById("progress-fill").style.width = progress + "%";
+  document.getElementById("saved-label").textContent = fmt(data.saved);
+  document.getElementById("progress-label").textContent = progress + "%";
+  document.getElementById("goal-label").textContent = fmt(data.goal);
+
+  document.getElementById("m-goal").textContent = fmt(data.goal);
+  document.getElementById("m-saved").textContent = fmt(data.saved);
+  document.getElementById("m-monthly").textContent = fmt(data.monthly_save);
+  document.getElementById("m-months").textContent = data.months_left + " мес.";
+
+  // График накоплений
+  const months = ["Янв","Фев","Мар","Апр","Май","Июн",
+                  "Июл","Авг","Сен","Окт","Ноя","Дек"];
+  const now = new Date();
+  const labels = [];
+  const actual = [];
+  const forecast = [];
+
+  for (let i = 0; i < 12; i++) {
+    const m = new Date(now.getFullYear(), now.getMonth() - 2 + i);
+    labels.push(months[m.getMonth()]);
+    if (i < 3) {
+      actual.push(Math.round(data.saved * (i + 1) / 3));
+      forecast.push(null);
+    } else {
+      actual.push(null);
+      forecast.push(Math.round(data.saved + data.monthly_save * (i - 2)));
+    }
+  }
+
+  new Chart(document.getElementById("savingsChart"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Накоплено",
+          data: actual,
+          borderColor: "#1D9E75",
+          backgroundColor: "rgba(29,158,117,0.1)",
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4
+        },
+        {
+          label: "Прогноз",
+          data: forecast,
+          borderColor: "#378ADD",
+          backgroundColor: "rgba(55,138,221,0.07)",
+          borderWidth: 2,
+          borderDash: [6, 4],
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { ticks: { callback: v => (v/1000) + "k", font: { size: 11 } } }
+      }
+    }
+  });
+
+  // График трат по дням
+  const last7 = data.daily.slice(-7);
+  const dayLabels = last7.map(d => {
+    const date = new Date(d.date);
+    return ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"][date.getDay()];
+  });
+  const dayTotals = last7.map(d => d.total);
+  const avgDay = dayTotals.reduce((a, b) => a + b, 0) / dayTotals.length;
+
+  new Chart(document.getElementById("expensesChart"), {
+    type: "bar",
+    data: {
+      labels: dayLabels,
+      datasets: [{
+        data: dayTotals,
+        backgroundColor: dayTotals.map(v =>
+          v > avgDay * 1.3 ? "rgba(226,75,74,0.7)" : "rgba(29,158,117,0.65)"
+        ),
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { ticks: { callback: v => v + "₽", font: { size: 11 } } }
+      }
+    }
+  });
+
+  // Список трат
+  const list = document.getElementById("expense-list");
+  if (!data.daily.length) { list.textContent = "Нет данных"; return; }
+
+  list.innerHTML = data.daily.slice(-5).reverse().map(entry => {
+    const date = new Date(entry.date);
+    const dateStr = date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+    return `
+      <div class="expense-item">
+        <div>
+          <div class="expense-name">${entry.text}</div>
+          <div class="expense-date">${dateStr}</div>
+        </div>
+        <div class="expense-amount">−${fmt(entry.total)}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+render(demo);
+</script>
+</body>
+</html>
