@@ -3,275 +3,102 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Puls — Пульсар</title>
+<title>Puls</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: #0a0a0f;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    color: #fff;
-    overflow: hidden;
-    user-select: none;
-  }
-
-  .hint {
-    font-size: 13px;
-    color: rgba(255,255,255,0.35);
-    margin-bottom: 48px;
-    letter-spacing: 0.05em;
-    text-align: center;
-    padding: 0 24px;
-    transition: opacity 0.5s;
-  }
-
-  .pulsar-wrap {
-    position: relative;
-    width: 220px;
-    height: 220px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* Внешнее свечение */
-  .glow {
-    position: absolute;
-    width: 220px;
-    height: 220px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
-    animation: glowPulse 3s ease-in-out infinite;
-  }
-
-  @keyframes glowPulse {
-    0%, 100% { transform: scale(1); opacity: 0.6; }
-    50% { transform: scale(1.15); opacity: 1; }
-  }
-
-  /* Сам шар */
-  .pulsar {
-    width: 160px;
-    height: 160px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%,
-      #2a2a4a 0%,
-      #0d0d1a 60%,
-      #050510 100%
-    );
-    box-shadow:
-      0 0 40px rgba(99,102,241,0.3),
-      0 0 80px rgba(99,102,241,0.1),
-      inset 0 0 30px rgba(0,0,0,0.8);
-    position: relative;
-    cursor: pointer;
-    transition: transform 0.1s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-  }
-
-  .pulsar:active {
-    transform: scale(0.96);
-  }
-
-  /* Кардиограмма внутри шара */
-  .ecg-canvas {
-    position: absolute;
-    width: 130px;
-    height: 50px;
-    opacity: 0.7;
-  }
-
-  /* Вспышка при ответе */
-  .flash {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(167,139,250,0.8) 0%, transparent 70%);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.1s;
-  }
-
-  .flash.active {
-    animation: flashAnim 0.6s ease-out forwards;
-  }
-
-  @keyframes flashAnim {
-    0% { opacity: 0.8; }
-    100% { opacity: 0; }
-  }
-
-  /* Кольцо пульса вокруг шара */
-  .ring {
-    position: absolute;
-    width: 160px;
-    height: 160px;
-    border-radius: 50%;
-    border: 1.5px solid rgba(99,102,241,0.4);
-    animation: ringPulse 3s ease-in-out infinite;
-  }
-
-  .ring2 {
-    width: 185px;
-    height: 185px;
-    border-color: rgba(99,102,241,0.15);
-    animation-delay: 0.5s;
-  }
-
-  @keyframes ringPulse {
-    0%, 100% { transform: scale(1); opacity: 0.6; }
-    50% { transform: scale(1.05); opacity: 0.2; }
-  }
-
-  /* Состояния */
-  .status {
-    margin-top: 40px;
-    font-size: 14px;
-    color: rgba(255,255,255,0.5);
-    text-align: center;
-    min-height: 44px;
-    padding: 0 32px;
-    line-height: 1.6;
-    transition: opacity 0.3s;
-  }
-
-  .status.answer {
-    color: rgba(255,255,255,0.85);
-    font-size: 15px;
-  }
-
-  /* Кнопка микрофона */
-  .mic-btn {
-    margin-top: 32px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: rgba(99,102,241,0.15);
-    border: 1.5px solid rgba(99,102,241,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .mic-btn:active, .mic-btn.recording {
-    background: rgba(99,102,241,0.35);
-    border-color: rgba(99,102,241,0.7);
-    box-shadow: 0 0 20px rgba(99,102,241,0.4);
-  }
-
-  .mic-btn svg {
-    width: 22px;
-    height: 22px;
-    fill: rgba(255,255,255,0.7);
-  }
-
-  /* Текстовый ввод */
-  .text-input-wrap {
-    margin-top: 16px;
-    width: 280px;
-    display: flex;
-    gap: 8px;
-  }
-
-  .text-input {
-    flex: 1;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    padding: 10px 14px;
-    color: #fff;
-    font-size: 14px;
-    outline: none;
-  }
-
-  .text-input::placeholder { color: rgba(255,255,255,0.25); }
-
-  .send-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: rgba(99,102,241,0.3);
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .send-btn:active { background: rgba(99,102,241,0.5); }
-  .send-btn svg { width: 18px; height: 18px; fill: #fff; }
-
-  /* Кнопка назад */
-  .back-btn {
-    position: fixed;
-    top: 16px;
-    left: 16px;
-    font-size: 13px;
-    color: rgba(255,255,255,0.3);
-    cursor: pointer;
-    padding: 8px;
-  }
-
-  /* Индикатор записи */
-  .rec-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #ef4444;
-    display: inline-block;
-    margin-right: 6px;
-    animation: blink 1s infinite;
-    display: none;
-  }
-
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
-  }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #000;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #fff;
+  overflow: hidden;
+  user-select: none;
+}
+canvas#space {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+}
+.ui {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 0 24px;
+}
+.hint {
+  font-size: 12px;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 280px;
+}
+.status {
+  margin-top: 16px;
+  font-size: 14px;
+  color: rgba(255,255,255,0.45);
+  text-align: center;
+  min-height: 40px;
+  max-width: 280px;
+  line-height: 1.6;
+  transition: color 0.4s;
+}
+.status.answer { color: rgba(255,255,255,0.8); }
+.input-wrap {
+  margin-top: 20px;
+  width: 280px;
+  display: flex;
+  gap: 8px;
+}
+.text-input {
+  flex: 1;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 11px 16px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.text-input:focus { border-color: rgba(180,140,255,0.4); }
+.text-input::placeholder { color: rgba(255,255,255,0.2); }
+.send-btn {
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  background: rgba(140,100,255,0.2);
+  border: 1px solid rgba(140,100,255,0.3);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.send-btn:active { background: rgba(140,100,255,0.45); }
+.send-btn svg { width: 18px; height: 18px; fill: rgba(255,255,255,0.7); }
+.back { position: fixed; top: 16px; left: 16px; font-size: 12px; color: rgba(255,255,255,0.2); cursor: pointer; z-index: 20; letter-spacing: 0.05em; }
 </style>
 </head>
 <body>
 
-<div class="back-btn" onclick="history.back()">← Назад</div>
+<div class="back" onclick="history.back()">← назад</div>
+<canvas id="space"></canvas>
 
-<p class="hint">Коснись Пульсара и задай вопрос о деньгах</p>
-
-<div class="pulsar-wrap">
-  <div class="glow"></div>
-  <div class="ring"></div>
-  <div class="ring ring2"></div>
-  <div class="pulsar" id="pulsar" onclick="onPulsarClick()">
-    <canvas class="ecg-canvas" id="ecg" width="130" height="50"></canvas>
-    <div class="flash" id="flash"></div>
+<div class="ui">
+  <div class="hint">Задай вопрос Пульсару</div>
+  <div class="status" id="status">Коснись центра или напиши вопрос</div>
+  <div class="input-wrap">
+    <input class="text-input" id="textInput" placeholder="Стоит ли купить это?" />
+    <button class="send-btn" onclick="sendText()">
+      <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+    </button>
   </div>
-</div>
-
-<div class="status" id="status">
-  <span class="rec-dot" id="recDot"></span>
-  <span id="statusText">Готов слушать</span>
-</div>
-
-<div class="mic-btn" id="micBtn" onclick="toggleRecording()">
-  <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zm-1 3a1 1 0 0 1 2 0v8a1 1 0 0 1-2 0V4zm6 8a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21H9v2h6v-2h-2v-2.08A7 7 0 0 0 19 12h-2z"/></svg>
-</div>
-
-<div class="text-input-wrap">
-  <input class="text-input" id="textInput" placeholder="Или напиши вопрос..." />
-  <button class="send-btn" onclick="sendText()">
-    <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
-  </button>
 </div>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -280,133 +107,236 @@ const tg = window.Telegram.WebApp;
 tg.ready();
 tg.expand();
 
-// ===== КАРДИОГРАММА =====
-const canvas = document.getElementById('ecg');
+const canvas = document.getElementById('space');
 const ctx = canvas.getContext('2d');
-let ecgPhase = 0;
-let ecgSpeed = 0.04;
-let ecgAmplitude = 1;
+
+let W, H, cx, cy;
+let t = 0;
+let pulsePhase = 0;
+let pulseIntensity = 1;
 let isThinking = false;
+let particles = [];
 
-function drawECG() {
-  ctx.clearRect(0, 0, 130, 50);
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2 - 60;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Частицы диска
+function initParticles() {
+  particles = [];
+  const count = 300;
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const r = 90 + Math.random() * 120;
+    const speed = (0.002 + Math.random() * 0.003) * (Math.random() > 0.5 ? 1 : -1);
+    const brightness = 0.2 + Math.random() * 0.6;
+    const size = 0.5 + Math.random() * 1.5;
+    // Цвет: от золотого к синему-белому
+    const hue = Math.random() > 0.6 ? 
+      Math.random() * 40 + 20 :   // тёплые
+      Math.random() * 40 + 200;   // холодные
+    particles.push({ angle, r, speed, brightness, size, hue });
+  }
+}
+initParticles();
+
+// ECG в центре
+let ecgPoints = [];
+let ecgOffset = 0;
+function getECGY(x, phase) {
+  const t2 = x * 0.08 + phase;
+  const beat = Math.sin(t2 * 1.2) * 0.3
+    + (Math.abs(Math.sin(t2 * 0.4)) > 0.85 ? Math.sin(t2 * 12) * 1.0 : 0)
+    + Math.sin(t2 * 2.7) * 0.1;
+  return beat;
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  // Фон — глубокий космос
+  const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.8);
+  bgGrad.addColorStop(0, '#05020f');
+  bgGrad.addColorStop(1, '#000000');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Звёзды
+  ctx.save();
+  for (let i = 0; i < 80; i++) {
+    const sx = (Math.sin(i * 127.3) * 0.5 + 0.5) * W;
+    const sy = (Math.cos(i * 89.7) * 0.5 + 0.5) * H;
+    const sr = 0.4 + Math.sin(i + t * 0.3) * 0.3;
+    const sa = 0.2 + Math.sin(i * 3.1 + t * 0.5) * 0.15;
+    ctx.beginPath();
+    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${sa})`;
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Внешнее диффузное свечение (линзирование)
+  const outerGlow = ctx.createRadialGradient(cx, cy, 60, cx, cy, 260);
+  outerGlow.addColorStop(0, 'rgba(120,80,220,0.0)');
+  outerGlow.addColorStop(0.3, 'rgba(100,60,200,0.06)');
+  outerGlow.addColorStop(0.6, 'rgba(80,40,160,0.08)');
+  outerGlow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = outerGlow;
   ctx.beginPath();
-  ctx.strokeStyle = 'rgba(167, 139, 250, 0.8)';
+  ctx.arc(cx, cy, 260, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Аккреционный диск — эллипс с градиентом
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Нижняя часть диска (за горизонтом)
+  for (let layer = 0; layer < 8; layer++) {
+    const rInner = 72 + layer * 14;
+    const rOuter = rInner + 16;
+    const scaleY = 0.28 + layer * 0.01;
+    const alpha = (0.35 - layer * 0.04) * pulseIntensity;
+
+    const diskGrad = ctx.createRadialGradient(0, 0, rInner, 0, 0, rOuter);
+    const hue = layer < 3 ? 40 + layer * 15 : 200 + layer * 8;
+    diskGrad.addColorStop(0, `hsla(${hue},90%,75%,${alpha})`);
+    diskGrad.addColorStop(1, `hsla(${hue},70%,30%,0)`);
+
+    ctx.save();
+    ctx.scale(1, scaleY);
+    ctx.beginPath();
+    ctx.arc(0, 0, rOuter, Math.PI, Math.PI * 2);
+    ctx.fillStyle = diskGrad;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Частицы диска
+  particles.forEach(p => {
+    p.angle += p.speed * (isThinking ? 2 : 1);
+    const px = Math.cos(p.angle) * p.r;
+    const py = Math.sin(p.angle) * p.r * 0.28;
+    const alpha = p.brightness * 0.7 * pulseIntensity;
+    ctx.beginPath();
+    ctx.arc(px, py, p.size, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${p.hue},80%,80%,${alpha})`;
+    ctx.fill();
+  });
+
+  // Верхняя часть диска (перед горизонтом)
+  for (let layer = 0; layer < 8; layer++) {
+    const rInner = 72 + layer * 14;
+    const rOuter = rInner + 16;
+    const scaleY = 0.3 + layer * 0.01;
+    const alpha = (0.45 - layer * 0.05) * pulseIntensity;
+
+    const diskGrad = ctx.createRadialGradient(0, 0, rInner, 0, 0, rOuter);
+    const hue = layer < 3 ? 35 + layer * 12 : 210 + layer * 6;
+    diskGrad.addColorStop(0, `hsla(${hue},95%,85%,${alpha})`);
+    diskGrad.addColorStop(1, `hsla(${hue},70%,30%,0)`);
+
+    ctx.save();
+    ctx.scale(1, scaleY);
+    ctx.beginPath();
+    ctx.arc(0, 0, rOuter, 0, Math.PI);
+    ctx.fillStyle = diskGrad;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Горизонт событий — абсолютная тьма
+  const hGrad = ctx.createRadialGradient(0, -8, 0, 0, 0, 68);
+  hGrad.addColorStop(0, 'rgba(0,0,0,1)');
+  hGrad.addColorStop(0.75, 'rgba(0,0,0,1)');
+  hGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.arc(0, 0, 68, 0, Math.PI * 2);
+  ctx.fillStyle = hGrad;
+  ctx.fill();
+
+  // Фотонное кольцо
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 72, 20, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(255,220,120,${0.35 * pulseIntensity})`;
   ctx.lineWidth = 1.5;
-  ctx.shadowBlur = 6;
-  ctx.shadowColor = 'rgba(167, 139, 250, 0.6)';
-
-  for (let x = 0; x < 130; x++) {
-    const t = (x / 130) * Math.PI * 4 + ecgPhase;
-    let y = 25;
-
-    if (isThinking) {
-      // Сжимается в точку
-      y = 25 + Math.sin(t * 3) * 2 * ecgAmplitude;
-    } else {
-      // Нормальный ритм пульса
-      const beat = Math.sin(t) * 0.5 +
-                   Math.sin(t * 2.3) * 0.3 +
-                   (Math.abs(Math.sin(t * 0.7)) > 0.9 ? Math.sin(t * 8) * 2 : 0);
-      y = 25 - beat * 14 * ecgAmplitude;
-    }
-
-    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  }
   ctx.stroke();
-  ecgPhase += ecgSpeed;
-  requestAnimationFrame(drawECG);
-}
-drawECG();
 
-// ===== СОСТОЯНИЯ =====
+  // ECG пульс в центре черной дыры
+  const ecgW = 80;
+  const ecgH = 22;
+  const ecgAlpha = isThinking ? 0.3 + Math.sin(t * 8) * 0.3 : 0.7 + Math.sin(t * 3) * 0.2;
+
+  ctx.save();
+  // Маска — только внутри горизонта
+  ctx.beginPath();
+  ctx.arc(0, 0, 56, 0, Math.PI * 2);
+  ctx.clip();
+
+  ctx.beginPath();
+  ctx.moveTo(-ecgW/2, 0);
+
+  for (let x = 0; x <= ecgW; x++) {
+    const nx = x / ecgW;
+    const fade = Math.sin(nx * Math.PI);
+    const yVal = getECGY(x, ecgOffset) * ecgH * fade;
+    ctx.lineTo(-ecgW/2 + x, -yVal);
+  }
+
+  // Свечение ECG
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = `rgba(200,160,255,0.8)`;
+  ctx.strokeStyle = `rgba(220,180,255,${ecgAlpha})`;
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+
+  // Центральная точка пульса
+  const dotGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, 18);
+  dotGlow.addColorStop(0, `rgba(255,240,255,${0.6 * pulseIntensity})`);
+  dotGlow.addColorStop(0.4, `rgba(180,120,255,${0.2 * pulseIntensity})`);
+  dotGlow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.beginPath();
+  ctx.arc(0, 0, 18, 0, Math.PI * 2);
+  ctx.fillStyle = dotGlow;
+  ctx.fill();
+
+  ctx.restore();
+
+  // Обновляем
+  ecgOffset += isThinking ? 0.15 : 0.05;
+  pulsePhase += 0.02;
+  t += 0.01;
+
+  // Дыхание диска
+  pulseIntensity = 0.85 + Math.sin(t * 1.5) * 0.15;
+
+  requestAnimationFrame(draw);
+}
+draw();
+
+// Клик по центру
+canvas.addEventListener('click', (e) => {
+  const dx = e.clientX - cx;
+  const dy = e.clientY - cy;
+  if (Math.sqrt(dx*dx + dy*dy) < 80) {
+    document.getElementById('textInput').focus();
+  }
+});
+
+// Состояния
 function setState(state, text) {
-  const statusEl = document.getElementById('status');
-  const statusText = document.getElementById('statusText');
-  const recDot = document.getElementById('recDot');
-
-  statusText.textContent = text;
-  statusEl.className = 'status' + (state === 'answer' ? ' answer' : '');
-  recDot.style.display = state === 'recording' ? 'inline-block' : 'none';
-
-  if (state === 'thinking') {
-    isThinking = true;
-    ecgSpeed = 0.08;
-  } else if (state === 'answer') {
-    isThinking = false;
-    ecgSpeed = 0.06;
-    ecgAmplitude = 1.5;
-    setTimeout(() => { ecgAmplitude = 1; ecgSpeed = 0.04; }, 2000);
-    flash();
-  } else {
-    isThinking = false;
-    ecgSpeed = 0.04;
-    ecgAmplitude = 1;
-  }
+  const el = document.getElementById('status');
+  el.textContent = text;
+  el.className = 'status' + (state === 'answer' ? ' answer' : '');
+  isThinking = state === 'thinking';
 }
 
-function flash() {
-  const f = document.getElementById('flash');
-  f.classList.add('active');
-  setTimeout(() => f.classList.remove('active'), 600);
-}
-
-// ===== ГОЛОСОВОЙ ВВОД =====
-let recognition = null;
-let isRecording = false;
-
-function onPulsarClick() {
-  if (!isRecording) toggleRecording();
-}
-
-function toggleRecording() {
-  if (isRecording) {
-    stopRecording();
-    return;
-  }
-
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    setState('idle', 'Голосовой ввод недоступен — напиши текстом');
-    return;
-  }
-
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRec();
-  recognition.lang = 'ru-RU';
-  recognition.continuous = false;
-  recognition.interimResults = false;
-
-  recognition.onstart = () => {
-    isRecording = true;
-    document.getElementById('micBtn').classList.add('recording');
-    setState('recording', 'Слушаю...');
-  };
-
-  recognition.onresult = (e) => {
-    const text = e.results[0][0].transcript;
-    askPulsar(text);
-  };
-
-  recognition.onerror = () => {
-    isRecording = false;
-    document.getElementById('micBtn').classList.remove('recording');
-    setState('idle', 'Не расслышал — попробуй ещё раз');
-  };
-
-  recognition.onend = () => {
-    isRecording = false;
-    document.getElementById('micBtn').classList.remove('recording');
-  };
-
-  recognition.start();
-}
-
-function stopRecording() {
-  if (recognition) recognition.stop();
-  isRecording = false;
-  document.getElementById('micBtn').classList.remove('recording');
-}
-
+// Отправка
 function sendText() {
   const input = document.getElementById('textInput');
   const text = input.value.trim();
@@ -419,38 +349,18 @@ document.getElementById('textInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendText();
 });
 
-// ===== ЗАПРОС К PULS =====
 async function askPulsar(question) {
-  setState('thinking', 'Думаю...');
-
-  // Получаем данные пользователя из Telegram
+  setState('thinking', '...');
   const userId = tg.initDataUnsafe?.user?.id;
-
   try {
-    // Пробуем получить данные с API
-    let userContext = '';
-    if (userId) {
-      try {
-        const resp = await fetch(`https://YOUR_API_URL/user/${userId}`);
-        if (resp.ok) {
-          const data = await resp.json();
-          userContext = `Мечта: ${data.dream || 'не указана'}, Доход: ${data.income || 0} ₽, Свободно: ${data.free_money || 0} ₽/мес`;
-        }
-      } catch (e) {}
-    }
-
-    // Отправляем через Telegram sendData в бот
     tg.sendData(JSON.stringify({
       type: 'pulsar_question',
       question: question,
       user_id: userId
     }));
-
-    // Показываем временный ответ пока бот не ответит
-    setState('answer', '✨ Вопрос отправлен Puls — смотри ответ в чате');
-
+    setState('answer', 'Смотри ответ в чате');
   } catch (e) {
-    setState('answer', 'Не удалось отправить вопрос. Напиши Puls напрямую в чат.');
+    setState('idle', 'Напиши вопрос боту напрямую');
   }
 }
 </script>
