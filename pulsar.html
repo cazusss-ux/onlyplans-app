@@ -9,30 +9,24 @@
 html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
 canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
 .hint {
-  position: fixed; top: 48px; width: 100%; text-align: center;
+  position: fixed; bottom: 64px; width: 100%; text-align: center;
   font-family: -apple-system, sans-serif; font-size: 11px;
   letter-spacing: 0.16em; text-transform: uppercase;
-  color: rgba(255,255,255,0.15); z-index: 10; pointer-events: none;
+  color: rgba(255,255,255,0.13); z-index: 10; pointer-events: none;
+  transition: color 0.6s;
 }
-.status {
-  position: fixed; bottom: 56px; width: 100%; text-align: center;
-  font-family: -apple-system, sans-serif; font-size: 13px;
-  color: rgba(255,255,255,0.25); z-index: 10; pointer-events: none;
-  transition: color 0.5s; padding: 0 40px; line-height: 1.5;
-}
-.status.active { color: rgba(255,200,120,0.7); }
+.hint.active { color: rgba(255,180,80,0.45); }
 .back {
   position: fixed; top: 14px; left: 14px;
   font-family: -apple-system, sans-serif; font-size: 12px;
-  color: rgba(255,255,255,0.15); cursor: pointer; z-index: 20;
+  color: rgba(255,255,255,0.13); cursor: pointer; z-index: 20;
 }
 </style>
 </head>
 <body>
 <div class="back" onclick="history.back()">← назад</div>
-<div class="hint">Задай вопрос Пульсару</div>
 <canvas id="c"></canvas>
-<div class="status" id="status">Напиши вопрос боту в чате</div>
+<div class="hint" id="hint">Коснись Пульсара</div>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
@@ -42,285 +36,238 @@ tg.ready(); tg.expand();
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
 let W, H, cx, cy, R;
-let t = 0;
-let thinking = false;
-let thinkTimer = null;
 
 function resize() {
   W = cv.width = window.innerWidth;
   H = cv.height = window.innerHeight;
-  cx = W * 0.46;
-  cy = H * 0.48;
-  R = Math.min(W, H) * 0.24;
+  cx = W / 2; cy = H / 2;
+  R = Math.min(W, H) * 0.22;
 }
 resize();
 window.addEventListener('resize', resize);
 
-// Звёзды
-const stars = Array.from({length: 200}, () => ({
+// Состояния: idle → touched → thinking → answering → idle
+let state = 'idle';
+let t = 0;
+let intensity = 0;       // 0..1 накал
+let targetIntensity = 0;
+let ripples = [];
+let flashAlpha = 0;
+let thinkTimer = null;
+
+// Звёзды — редкие, почти невидимые
+const stars = Array.from({length: 60}, () => ({
   x: Math.random(), y: Math.random(),
-  r: 0.2 + Math.random() * 0.8,
-  a: 0.08 + Math.random() * 0.4,
-  f: 0.2 + Math.random() * 1.2
+  r: 0.2 + Math.random() * 0.6,
+  a: 0.04 + Math.random() * 0.12,
+  f: 0.3 + Math.random() * 0.8
 }));
 
-// ECG — реалистичный QRS
-function ecgSample(phase) {
-  const p = ((phase % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-  const norm = p / (Math.PI * 2);
-  // P wave
-  const pw = Math.exp(-Math.pow((norm - 0.1) * 22, 2)) * 0.18;
-  // Q dip
-  const q  = -Math.exp(-Math.pow((norm - 0.22) * 45, 2)) * 0.15;
-  // R spike
-  const r  =  Math.exp(-Math.pow((norm - 0.27) * 28, 2)) * 1.0;
-  // S dip
-  const s  = -Math.exp(-Math.pow((norm - 0.32) * 42, 2)) * 0.22;
-  // T wave
-  const tw =  Math.exp(-Math.pow((norm - 0.55) * 14, 2)) * 0.28;
-  return pw + q + r + s + tw;
+function setState(s) {
+  state = s;
+  const hint = document.getElementById('hint');
+  if (s === 'idle') {
+    targetIntensity = 0;
+    hint.textContent = 'Коснись Пульсара';
+    hint.className = 'hint';
+  } else if (s === 'touched') {
+    targetIntensity = 0.5;
+    hint.textContent = 'Напиши вопрос в чате';
+    hint.className = 'hint active';
+  } else if (s === 'thinking') {
+    targetIntensity = 0.85;
+    hint.textContent = 'Думает...';
+    hint.className = 'hint active';
+  } else if (s === 'answering') {
+    targetIntensity = 1.0;
+    flashAlpha = 1.0;
+    hint.textContent = 'Смотри ответ в чате';
+    hint.className = 'hint active';
+  }
 }
-
-let ecgOffset = 0;
-let dotPos = 0;
-
-// Параметры диска (наклонный эллипс)
-const DISK_A = 2.8;   // горизонтальный радиус диска (множитель R)
-const DISK_B = 0.55;  // вертикальный (наклон)
-const DISK_TILT = -0.18; // наклон в радианах
 
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
-  // Фон — глубокий космос
-  ctx.fillStyle = '#02010a';
+  // Фон
+  ctx.fillStyle = '#000008';
   ctx.fillRect(0, 0, W, H);
 
   // Звёзды
   stars.forEach((s, i) => {
-    const a = s.a * (0.6 + Math.sin(t * s.f + i * 1.7) * 0.4);
+    const a = s.a * (0.5 + Math.sin(t * s.f + i) * 0.5);
     ctx.beginPath();
     ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(255,255,255,${a})`;
     ctx.fill();
   });
 
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(DISK_TILT);
+  // Плавный переход intensity
+  intensity += (targetIntensity - intensity) * 0.035;
 
-  // === ЗАДНЯЯ ЧАСТЬ ДИСКА (за горизонтом) ===
-  for (let i = 12; i >= 0; i--) {
-    const rInner = R * (1.05 + i * 0.12);
-    const rOuter = rInner + R * 0.14;
-    const scaleY = DISK_B * (1 - i * 0.012);
-    const alpha = Math.max(0, 0.38 - i * 0.028) * (thinking ? 1.3 : 1);
-    const hue = 28 + i * 3;
-    const sat = 70 + i * 2;
+  // Дыхание в покое
+  const breath = Math.sin(t * 1.1) * 0.5 + 0.5; // 0..1
+  const breathIntensity = intensity + (state === 'idle' ? breath * 0.12 : 0);
 
-    ctx.save();
-    ctx.scale(1, scaleY);
-    const g = ctx.createRadialGradient(0, 0, rInner, 0, 0, rOuter);
-    g.addColorStop(0, `hsla(${hue},${sat}%,72%,${alpha})`);
-    g.addColorStop(0.5, `hsla(${hue+10},${sat-10}%,55%,${alpha * 0.6})`);
-    g.addColorStop(1, `hsla(${hue},50%,30%,0)`);
+  // Внешнее рассеянное свечение
+  if (breathIntensity > 0.01) {
+    const glowR = R * (2.8 + breathIntensity * 1.5);
+    const glow = ctx.createRadialGradient(cx, cy, R * 0.5, cx, cy, glowR);
+    const alpha1 = breathIntensity * 0.12;
+    const alpha2 = breathIntensity * 0.04;
+    glow.addColorStop(0,   `rgba(255,${140 - breathIntensity*40},${20},${alpha1})`);
+    glow.addColorStop(0.4, `rgba(200,${80},0,${alpha2})`);
+    glow.addColorStop(1,   'rgba(0,0,0,0)');
     ctx.beginPath();
-    ctx.arc(0, 0, rOuter, Math.PI, Math.PI * 2);
-    ctx.fillStyle = g;
+    ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
     ctx.fill();
-    ctx.restore();
   }
 
-  // Несколько ярких полос диска (задний план)
-  for (let i = 0; i < 5; i++) {
-    const r = R * (1.08 + i * 0.28);
-    const alpha = (0.22 - i * 0.04) * (thinking ? 1.4 : 1);
-    ctx.save();
-    ctx.scale(1, DISK_B * 0.95);
+  // Рябь от касания
+  ripples = ripples.filter(r => r.alpha > 0.005);
+  ripples.forEach(r => {
+    r.radius += 3.5;
+    r.alpha *= 0.93;
     ctx.beginPath();
-    ctx.arc(0, 0, r, Math.PI, Math.PI * 2);
-    ctx.strokeStyle = `rgba(255,210,130,${alpha})`;
-    ctx.lineWidth = R * 0.025;
+    ctx.arc(cx, cy, r.radius, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255,160,60,${r.alpha})`;
+    ctx.lineWidth = 1;
     ctx.stroke();
-    ctx.restore();
-  }
+  });
 
-  // === ЧЁРНАЯ СФЕРА ===
-  // Мягкое свечение вокруг сферы
-  const sphereGlow = ctx.createRadialGradient(0, -R * 0.1, R * 0.7, 0, 0, R * 1.3);
-  sphereGlow.addColorStop(0, 'rgba(0,0,0,0)');
-  sphereGlow.addColorStop(0.55, 'rgba(0,0,0,0)');
-  sphereGlow.addColorStop(0.75, 'rgba(255,200,100,0.06)');
-  sphereGlow.addColorStop(1, 'rgba(0,0,0,0)');
+  // Шар — тёмное ядро
+  const ballGrad = ctx.createRadialGradient(
+    cx - R * 0.25, cy - R * 0.25, 0,
+    cx, cy, R
+  );
+
+  // Накал: от тёмного угля к раскалённому
+  const heat = breathIntensity;
+  const r1 = Math.floor(10 + heat * 30);
+  const g1 = Math.floor(5 + heat * 10);
+  const b1 = Math.floor(5 + heat * 3);
+  const r2 = Math.floor(heat * 255);
+  const g2 = Math.floor(heat * 80);
+  const edgeAlpha = 0.15 + heat * 0.6;
+
+  ballGrad.addColorStop(0,   `rgb(${r1},${g1},${b1})`);
+  ballGrad.addColorStop(0.45, `rgb(${Math.floor(r1*0.6)},${Math.floor(g1*0.5)},${Math.floor(b1*0.5)})`);
+  ballGrad.addColorStop(0.78, `rgb(${Math.floor(heat*60)},${Math.floor(heat*15)},0)`);
+  ballGrad.addColorStop(1,   `rgba(${r2},${g2},0,${edgeAlpha})`);
+
   ctx.beginPath();
-  ctx.arc(0, 0, R * 1.3, 0, Math.PI * 2);
-  ctx.fillStyle = sphereGlow;
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = ballGrad;
   ctx.fill();
 
-  // Сама чёрная сфера
-  const blackHole = ctx.createRadialGradient(R * 0.15, -R * 0.15, 0, 0, 0, R);
-  blackHole.addColorStop(0, '#0a0808');
-  blackHole.addColorStop(0.5, '#050303');
-  blackHole.addColorStop(1, '#000000');
+  // Внутренняя текстура накала (трещины угля)
+  if (heat > 0.1) {
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2 + t * 0.2;
+      const len = R * (0.2 + Math.sin(t * 0.7 + i) * 0.1);
+      const ox = cx + Math.cos(angle) * R * 0.25;
+      const oy = cy + Math.sin(angle) * R * 0.25;
+      const ex = ox + Math.cos(angle + 0.8) * len;
+      const ey = oy + Math.sin(angle + 0.8) * len;
+      const crackAlpha = heat * (0.3 + Math.sin(t * 2 + i) * 0.2);
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(ex, ey);
+      ctx.strokeStyle = `rgba(255,${120 + i*10},${20},${crackAlpha})`;
+      ctx.lineWidth = heat * 1.5;
+      ctx.stroke();
+    }
+  }
+
+  // Ободок — светящийся край
+  const edgeGrad = ctx.createRadialGradient(cx, cy, R * 0.82, cx, cy, R * 1.02);
+  edgeGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  edgeGrad.addColorStop(0.6, `rgba(255,${Math.floor(100 * heat)},0,${heat * 0.5})`);
+  edgeGrad.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.beginPath();
-  ctx.arc(0, 0, R, 0, Math.PI * 2);
-  ctx.fillStyle = blackHole;
+  ctx.arc(cx, cy, R * 1.02, 0, Math.PI * 2);
+  ctx.fillStyle = edgeGrad;
   ctx.fill();
 
-  // Белое фотонное кольцо
-  ctx.beginPath();
-  ctx.arc(0, 0, R, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,255,240,0.85)';
-  ctx.lineWidth = R * 0.025;
-  ctx.shadowBlur = 12;
-  ctx.shadowColor = 'rgba(255,250,220,0.6)';
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  // === ПУЛЬС ВНУТРИ СФЕРЫ ===
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(0, 0, R * 0.86, 0, Math.PI * 2);
-  ctx.clip();
-
-  const ecgW = R * 1.6;
-  const ecgH = R * 0.55;
-  const speed = thinking ? 0.22 : 0.07;
-  ecgOffset += speed;
-  dotPos = (dotPos + speed * 0.55) % (Math.PI * 2);
-
-  // Сетка (слабая)
-  ctx.strokeStyle = 'rgba(150,30,30,0.08)';
-  ctx.lineWidth = 0.5;
-  for (let xi = -3; xi <= 3; xi++) {
-    ctx.beginPath();
-    ctx.moveTo(xi * R * 0.3, -R * 0.8);
-    ctx.lineTo(xi * R * 0.3, R * 0.8);
-    ctx.stroke();
-  }
-  ctx.beginPath();
-  ctx.moveTo(-ecgW * 0.6, 0);
-  ctx.lineTo(ecgW * 0.6, 0);
-  ctx.stroke();
-
-  // Основная линия ECG
-  const pts = [];
-  const steps = 200;
-  for (let xi = 0; xi <= steps; xi++) {
-    const xn = xi / steps;
-    const fade = Math.sin(xn * Math.PI);
-    const phase = xn * Math.PI * 4 + ecgOffset;
-    const yval = ecgSample(phase) * ecgH * fade;
-    const px = -ecgW / 2 + xn * ecgW;
-    const py = -yval;
-    pts.push([px, py]);
-  }
-
-  // Свечение (широкое)
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  pts.forEach(([px, py]) => ctx.lineTo(px, py));
-  ctx.strokeStyle = thinking
-    ? 'rgba(255,80,80,0.25)'
-    : 'rgba(200,40,40,0.18)';
-  ctx.lineWidth = thinking ? 7 : 5;
-  ctx.shadowBlur = 0;
-  ctx.stroke();
-
-  // Основная линия
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  pts.forEach(([px, py]) => ctx.lineTo(px, py));
-  ctx.strokeStyle = thinking
-    ? `rgba(255,${90 + Math.sin(t * 8) * 40},90,0.95)`
-    : 'rgba(220,50,50,0.9)';
-  ctx.lineWidth = thinking ? 2.2 : 1.6;
-  ctx.shadowBlur = thinking ? 16 : 8;
-  ctx.shadowColor = thinking ? 'rgba(255,80,80,0.9)' : 'rgba(220,50,50,0.7)';
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  // Движущаяся точка
-  const dotNorm = (dotPos / (Math.PI * 2)) % 1;
-  const dotIdx = Math.floor(dotNorm * steps);
-  if (dotIdx < pts.length) {
-    const [dx, dy] = pts[dotIdx];
-    ctx.beginPath();
-    ctx.arc(dx, dy, thinking ? 3.5 : 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,180,60,1)';
-    ctx.shadowBlur = 14;
-    ctx.shadowColor = 'rgba(255,160,40,0.9)';
-    ctx.fill();
-    ctx.shadowBlur = 0;
-  }
-
-  ctx.restore();
-
-  // === ПЕРЕДНЯЯ ЧАСТЬ ДИСКА (перед горизонтом) ===
-  for (let i = 0; i < 12; i++) {
-    const rInner = R * (1.05 + i * 0.13);
-    const rOuter = rInner + R * 0.15;
-    const scaleY = DISK_B * (1 - i * 0.01);
-    const alpha = Math.max(0, 0.55 - i * 0.04) * (thinking ? 1.25 : 1);
-    const hue = 25 + i * 2.5;
-
+  // Пульс — шар слегка меняет размер в ритме
+  const pulseScale = 1 + Math.sin(t * (state === 'thinking' ? 6 : 1.8)) * (0.012 + heat * 0.025);
+  if (Math.abs(pulseScale - 1) > 0.001) {
     ctx.save();
-    ctx.scale(1, scaleY);
-    const g = ctx.createRadialGradient(0, 0, rInner, 0, 0, rOuter);
-    g.addColorStop(0, `hsla(${hue},85%,80%,${alpha})`);
-    g.addColorStop(0.4, `hsla(${hue+8},78%,60%,${alpha * 0.65})`);
-    g.addColorStop(1, `hsla(${hue+5},55%,28%,0)`);
+    ctx.translate(cx, cy);
+    ctx.scale(pulseScale, pulseScale);
+    ctx.translate(-cx, -cy);
+    // Дополнительный ореол в момент пульса
+    const pulseGlow = ctx.createRadialGradient(cx, cy, R * 0.9, cx, cy, R * 1.15);
+    const pa = Math.abs(pulseScale - 1) * 20 * heat;
+    pulseGlow.addColorStop(0, `rgba(255,120,0,${pa})`);
+    pulseGlow.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.beginPath();
-    ctx.arc(0, 0, rOuter, 0, Math.PI);
-    ctx.fillStyle = g;
+    ctx.arc(cx, cy, R * 1.15, 0, Math.PI * 2);
+    ctx.fillStyle = pulseGlow;
     ctx.fill();
     ctx.restore();
   }
 
-  // Яркие полосы переднего диска
-  for (let i = 0; i < 6; i++) {
-    const r = R * (1.1 + i * 0.25);
-    const alpha = (0.45 - i * 0.07) * (thinking ? 1.4 : 1);
-    ctx.save();
-    ctx.scale(1, DISK_B * 0.92);
+  // Вспышка при ответе
+  if (flashAlpha > 0.01) {
+    const flashGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 2.5);
+    flashGrad.addColorStop(0, `rgba(255,200,100,${flashAlpha * 0.9})`);
+    flashGrad.addColorStop(0.3, `rgba(255,120,30,${flashAlpha * 0.4})`);
+    flashGrad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI);
-    ctx.strokeStyle = `rgba(255,${200 - i * 15},${100 - i * 10},${alpha})`;
-    ctx.lineWidth = R * (0.03 - i * 0.003);
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = `rgba(255,180,80,${alpha * 0.5})`;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.restore();
+    ctx.arc(cx, cy, R * 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = flashGrad;
+    ctx.fill();
+    flashAlpha *= 0.88;
   }
 
-  ctx.restore(); // rotate
-
-  t += 0.008;
+  t += 0.012;
   requestAnimationFrame(draw);
 }
 draw();
 
-// Тап
+// Касание
 cv.addEventListener('click', e => {
   const dx = e.clientX - cx;
   const dy = e.clientY - cy;
-  if (Math.sqrt(dx*dx + dy*dy) < R * 1.3) {
-    thinking = true;
-    setStatus('active', 'Напиши вопрос боту в чате — Пульсар думает...');
-    if (thinkTimer) clearTimeout(thinkTimer);
-    thinkTimer = setTimeout(() => {
-      thinking = false;
-      setStatus('', 'Напиши вопрос боту в чате');
-    }, 4000);
+  const dist = Math.sqrt(dx*dx + dy*dy);
+
+  if (dist < R * 1.4) {
+    // Рябь
+    ripples.push({ radius: R * 0.3, alpha: 0.6 });
+
+    if (state === 'idle') {
+      setState('touched');
+      if (thinkTimer) clearTimeout(thinkTimer);
+      thinkTimer = setTimeout(() => {
+        setState('thinking');
+        thinkTimer = setTimeout(() => {
+          setState('answering');
+          thinkTimer = setTimeout(() => setState('idle'), 2500);
+        }, 3000);
+      }, 1200);
+    }
   }
 });
 
-function setStatus(cls, text) {
-  const el = document.getElementById('status');
-  el.textContent = text;
-  el.className = 'status ' + cls;
-}
+// Долгое нажатие — режим "думает"
+let pressTimer = null;
+cv.addEventListener('touchstart', e => {
+  const touch = e.touches[0];
+  const dx = touch.clientX - cx;
+  const dy = touch.clientY - cy;
+  if (Math.sqrt(dx*dx + dy*dy) < R * 1.4) {
+    ripples.push({ radius: R * 0.2, alpha: 0.5 });
+    pressTimer = setTimeout(() => {
+      setState('thinking');
+    }, 500);
+  }
+}, { passive: true });
+
+cv.addEventListener('touchend', () => {
+  if (pressTimer) clearTimeout(pressTimer);
+}, { passive: true });
 </script>
 </body>
 </html>
